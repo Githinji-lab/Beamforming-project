@@ -539,3 +539,60 @@ end
 function W = beamforming_MMSE(H, N_tx, K, SNR_linear)
     W = H' / (H * H' + (K / SNR_linear) * eye(K));
     for k = 1:size(W, 2)
+        W(:, k) = W(:, k) / norm(W(:, k)) * sqrt(N_tx);
+    end
+end
+
+function W = beamforming_SLNR(H, N_tx, K, SNR_linear)
+    % Signal-to-Leakage-and-Noise Ratio Beamforming
+    W = zeros(N_tx, K);
+    
+    for k = 1:K
+        % For user k:
+        h_k = H(k, :)';  % Desired user channel
+        
+        % Interference channels (all other users)
+        H_interf = H;
+        H_interf(k, :) = [];  % Remove user k
+        
+        % Leakage plus noise covariance
+        R_leak_noise = H_interf' * H_interf + (1/SNR_linear) * eye(N_tx);
+        
+        % Signal covariance
+        R_signal = h_k * h_k';
+        
+        % Solve generalized eigenvalue problem
+        [V, D] = eig(R_signal, R_leak_noise);
+        [~, max_idx] = max(diag(D));
+        w_k = V(:, max_idx);
+        
+        % Normalize
+        W(:, k) = w_k / norm(w_k) * sqrt(N_tx);
+    end
+end
+
+function [SINR_dB, sum_capacity] = compute_performance(H, W, SNR_linear, noise_power)
+    K = size(H, 1);
+    SINR = zeros(K, 1);
+    
+    for k = 1:K
+        % Desired signal power
+        signal_power = abs(H(k, :) * W(:, k))^2;
+        
+        % Interference power from other users
+        interference_power = 0;
+        for j = 1:K
+            if j ~= k
+                interference_power = interference_power + abs(H(k, :) * W(:, j))^2;
+            end
+        end
+        
+        % SINR calculation
+        SINR(k) = (SNR_linear * signal_power) / (SNR_linear * interference_power + noise_power);
+    end
+    
+    SINR_dB = 10 * log10(SINR);
+    
+    % Sum capacity (Shannon formula)
+    sum_capacity = sum(log2(1 + SINR));
+end

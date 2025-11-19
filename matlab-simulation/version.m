@@ -382,3 +382,4 @@ function [SINR_dB, sum_capacity] = compute_performance(H, W, SNR_linear, noise_p
     % Sum capacity (Shannon formula)
     sum_capacity = sum(log2(1 + SINR));
 end
+

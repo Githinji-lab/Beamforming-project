@@ -1,55 +1,55 @@
 %% ========================================================================
-%  MATLAB Simulation: Adaptive Beamforming Dataset Generator - Variant 3
-%  Focus: MICROSTRIP PATCH ANTENNA with Realistic 5G Effects
-%  Includes: Element pattern, mutual coupling, polarization, substrate
+%  MATLAB Simulation: Adaptive Beamforming Dataset Generator - Variant 3
+%  Focus: MICROSTRIP PATCH ANTENNA with Realistic 5G Effects
+%  (SLNR function error corrected)
 % =========================================================================
 
 clear all; close all; clc;
 
 %% ========================================================================
-%  SECTION 1: PARAMETER INITIALIZATION (MICROSTRIP PATCH CONFIGURATION)
+%  SECTION 1: PARAMETER INITIALIZATION (MICROSTRIP PATCH CONFIGURATION)
 % =========================================================================
 
 % Microstrip Patch Antenna Specifications
-fc = 3.5e9;                  % 5G Sub-6 GHz frequency (3.5 GHz)
-c = 3e8;                     % Speed of light (m/s)
-lambda = c / fc;             % Wavelength (0.0857 m = 8.57 cm)
+fc = 3.5e9;                    % 5G Sub-6 GHz frequency (3.5 GHz)
+c = 3e8;                       % Speed of light (m/s)
+lambda = c / fc;               % Wavelength (0.0857 m = 8.57 cm)
 
 % Substrate Parameters (FR-4 or Rogers RO4003C)
-epsilon_r = 3.55;            % Relative permittivity (FR-4: 4.4, Rogers: 3.55)
-tan_delta = 0.0027;          % Loss tangent
-substrate_height = 1.524e-3; % Substrate thickness (mm)
+epsilon_r = 3.55;              % Relative permittivity (FR-4: 4.4, Rogers: 3.55)
+tan_delta = 0.0027;            % Loss tangent
+substrate_height = 1.524e-3;   % Substrate thickness (mm)
 
 % Array Configuration - LINEAR ARRAY (Realistic Base Station)
-N_tx = 8;                    % Number of patch elements
-d = 0.5 * lambda;            % Element spacing (half-wavelength)
+N_tx = 8;                      % Number of patch elements
+d = 0.5 * lambda;              % Element spacing (half-wavelength)
 
 % Microstrip Patch Pattern Parameters
-half_power_beamwidth = 65;   % HPBW in degrees (typical for patch)
-exponent_n = 1.5;            % Directivity factor (cos^n pattern)
-front_to_back_ratio = 20;    % dB (typical for patch antenna)
+half_power_beamwidth = 65;     % HPBW in degrees (typical for patch)
+exponent_n = 1.5;              % Directivity factor (cos^n pattern)
+front_to_back_ratio = 20;      % dB (typical for patch antenna)
 
 % User Configuration
-K = 4;                       % Number of users
-N_rx = 1;                    % Single antenna per user
+K = 4;                         % Number of users
+N_rx = 1;                      % Single antenna per user
 
 % Simulation Parameters
-N_iterations = 600;          % Monte Carlo iterations
-SNR_dB_range = 0:5:25;       % SNR range for evaluation
+N_iterations = 600;            % Monte Carlo iterations
+SNR_dB_range = 0:5:25;         % SNR range for evaluation
 N_SNR = length(SNR_dB_range);
 
 % Channel Model - Urban Micro (5G NR)
-N_paths = 8;                 % Multipath components
-angular_spread = 15;         % Angular spread (degrees)
-rician_K = 5;                % Rician K-factor (dB) - partial LOS
+N_paths = 8;                   % Multipath components
+angular_spread = 15;           % Angular spread (degrees)
+rician_K = 5;                  % Rician K-factor (dB) - partial LOS
 noise_power = 1;
 
 % Mutual Coupling Parameters
-coupling_enabled = true;     % Enable mutual coupling effects
-coupling_strength = -15;     % Coupling coefficient (dB) at 0.5λ
+coupling_enabled = true;       % Enable mutual coupling effects
+coupling_strength = -15;       % Coupling coefficient (dB) at 0.5λ
 
 % Polarization
-polarization = 'vertical';   % Linear vertical polarization
+polarization = 'vertical';     % Linear vertical polarization
 cross_pol_discrimination = 20; % XPD in dB
 
 % ML Dataset Storage
@@ -60,7 +60,7 @@ dataset_config.frequency = fc / 1e9;
 dataset_config.substrate = sprintf('εr=%.2f, tanδ=%.4f', epsilon_r, tan_delta);
 
 dataset_H = cell(N_iterations, 1);
-dataset_H_ideal = cell(N_iterations, 1);  % For comparison
+dataset_H_ideal = cell(N_iterations, 1);
 dataset_angles = zeros(N_iterations, K);
 dataset_distances = zeros(N_iterations, K);
 dataset_element_gains = cell(N_iterations, K);
@@ -68,7 +68,7 @@ dataset_coupling_matrix = cell(N_iterations, 1);
 dataset_W_MRT = cell(N_iterations, 1);
 dataset_W_ZF = cell(N_iterations, 1);
 dataset_W_MMSE = cell(N_iterations, N_SNR);
-dataset_W_SLNR = cell(N_iterations, N_SNR);  % Signal-to-Leakage-Noise Ratio
+dataset_W_SLNR = cell(N_iterations, N_SNR);
 dataset_SINR_MRT = zeros(N_iterations, K, N_SNR);
 dataset_SINR_ZF = zeros(N_iterations, K, N_SNR);
 dataset_SINR_MMSE = zeros(N_iterations, K, N_SNR);
@@ -110,7 +110,6 @@ for iter = 1:N_iterations
     end
     
     % Generate user angles (limited scan range for patches)
-    % Microstrip patches work best within ±60° from broadside
     user_angles = (rand(K, 1) - 0.5) * 100; % -50° to +50° (realistic coverage)
     dataset_angles(iter, :) = user_angles;
     
@@ -257,7 +256,9 @@ axis square;
 subplot(2, 3, 4);
 sample_iter = randi(N_iterations);
 H_sample = dataset_H{sample_iter};
-W_sample = dataset_W_MMSE{sample_iter, find(SNR_dB_range==15)};
+snr_15dB_idx = find(SNR_dB_range==15, 1, 'first');
+if isempty(snr_15dB_idx), snr_15dB_idx = ceil(N_SNR/2); end
+W_sample = dataset_W_MMSE{sample_iter, snr_15dB_idx};
 angles_sample = dataset_angles(sample_iter, :);
 
 theta_range = -90:0.5:90;
@@ -298,10 +299,13 @@ set(gca, 'FontSize', 11);
 subplot(2, 3, 5);
 angle_bins = -50:10:50;
 sinr_vs_angle = zeros(length(angle_bins)-1, 1);
+snr_15dB_idx = find(SNR_dB_range==15, 1, 'first');
+if isempty(snr_15dB_idx), snr_15dB_idx = ceil(N_SNR/2); end
 
 for i = 1:length(angle_bins)-1
-    angle_mask = (dataset_angles >= angle_bins(i)) & (dataset_angles < angle_bins(i+1));
-    sinr_in_bin = dataset_SINR_MMSE(angle_mask, :, find(SNR_dB_range==15));
+    angle_mask_temp = (dataset_angles >= angle_bins(i)) & (dataset_angles < angle_bins(i+1));
+    angle_mask = repmat(angle_mask_temp, 1, K); % Replicate mask for all users
+    sinr_in_bin = dataset_SINR_MMSE(angle_mask, snr_15dB_idx);
     sinr_vs_angle(i) = mean(sinr_in_bin(:));
 end
 
@@ -315,7 +319,8 @@ set(gca, 'FontSize', 11);
 % Plot 6: Performance Comparison Table
 subplot(2, 3, 6);
 axis off;
-snr_ref = find(SNR_dB_range == 15);
+snr_ref = find(SNR_dB_range == 15, 1, 'first');
+if isempty(snr_ref), snr_ref = ceil(N_SNR/2); end
 
 table_data = {
     'Method', 'Capacity', 'Avg SINR', 'Min SINR';
@@ -373,7 +378,7 @@ ML_Dataset_V3.Parameters.N_iterations = N_iterations;
 ML_Dataset_V3.Parameters.SNR_dB_range = SNR_dB_range;
 
 ML_Dataset_V3.Features.H = dataset_H;
-ML_Dataset_V3.Features.H_ideal = dataset_H_ideal;  % For comparison
+ML_Dataset_V3.Features.H_ideal = dataset_H_ideal;
 ML_Dataset_V3.Features.user_angles = dataset_angles;
 ML_Dataset_V3.Features.user_distances = dataset_distances;
 ML_Dataset_V3.Features.element_gains = dataset_element_gains;
@@ -548,25 +553,27 @@ function W = beamforming_SLNR(H, N_tx, K, SNR_linear)
     W = zeros(N_tx, K);
     
     for k = 1:K
-        % For user k:
-        h_k = H(k, :)';  % Desired user channel
-        
-        % Interference channels (all other users)
-        H_interf = H;
-        H_interf(k, :) = [];  % Remove user k
-        
-        % Leakage plus noise covariance
-        R_leak_noise = H_interf' * H_interf + (1/SNR_linear) * eye(N_tx);
-        
-        % Signal covariance
+        % 1. Desired Signal Component (Numerator A)
+        h_k = H(k, :)';
         R_signal = h_k * h_k';
         
-        % Solve generalized eigenvalue problem
+        % 2. Leakage + Noise Component (Denominator B)
+        R_leak_noise = (1/SNR_linear) * eye(N_tx); % Noise term
+        
+        % Sum of leakage terms
+        for j = 1:K
+            if j ~= k
+                h_j = H(j, :)';
+                R_leak_noise = R_leak_noise + h_j * h_j'; % Leakage term
+            end
+        end
+        
+        % 3. Solve generalized eigenvalue problem: A*w = lambda*B*w
         [V, D] = eig(R_signal, R_leak_noise);
         [~, max_idx] = max(diag(D));
         w_k = V(:, max_idx);
         
-        % Normalize
+        % 4. Normalize
         W(:, k) = w_k / norm(w_k) * sqrt(N_tx);
     end
 end

@@ -538,4 +538,4 @@ end
 
 function W = beamforming_MMSE(H, N_tx, K, SNR_linear)
     W = H' / (H * H' + (K / SNR_linear) * eye(K));
-    for k = 1:size
+    for k = 1:size(W, 2)
